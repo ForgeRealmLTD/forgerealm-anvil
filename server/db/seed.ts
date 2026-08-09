@@ -4,22 +4,12 @@ import { SeedProduct } from '../types';
 
 const products: SeedProduct[] = [
   // Articulated
-  { name: 'Big Dragon', default_price: 10.00, category: 'Articulated' },
-  { name: 'Water Dragon', default_price: 10.00, category: 'Articulated' },
-  { name: 'Dragon No Legs', default_price: 7.00, category: 'Articulated' },
-  { name: 'Small Dragon', default_price: 8.00, category: 'Articulated' },
-  { name: 'Crocodile', default_price: 4.00, category: 'Articulated' },
+  { name: 'Mini Dragon', default_price: 10.00, category: 'Articulated' },
   { name: 'Cat', default_price: 2.00, category: 'Articulated' },
-  { name: 'Bunny', default_price: 3.00, category: 'Articulated' },
-  { name: 'Small Bunny', default_price: 2.00, category: 'Articulated' },
-  { name: 'Bunny Spring', default_price: 2.00, category: 'Articulated' },
+  { name: 'Wing Dragon', default_price: 9.00, category: 'Articulated' }, // TODO: placeholder price, confirm before launch
+  { name: 'Octoring', default_price: 5.00, category: 'Articulated' }, // TODO: placeholder price, confirm before launch
 
-  // Keychains
-  { name: 'Big Keychain Dragon', default_price: 4.00, category: 'Keychains' },
-  { name: 'Small Keychain Dragon', default_price: 2.00, category: 'Keychains' },
-  { name: 'XL Dragon Keychain', default_price: 5.00, category: 'Keychains' },
-  { name: 'Bunny Keychain', default_price: 2.00, category: 'Keychains' },
-  { name: 'Extra Keychain', default_price: 2.00, category: 'Keychains' },
+  // Keychains (sold bare now, ring dropped - see toy safety review)
   { name: 'Hexagon Keychain', default_price: 3.00, category: 'Keychains' },
 
   // Tealights
@@ -36,17 +26,14 @@ const products: SeedProduct[] = [
   { name: 'Voronoi Elephant', default_price: 3.00, category: 'Voronoi' },
 
   // Fidget
-  { name: 'Big Spinner', default_price: 4.00, category: 'Fidget' },
-  { name: 'Spinner', default_price: 3.00, category: 'Fidget' },
-  { name: '4 Leaf Fidget', default_price: 3.00, category: 'Fidget' },
-  { name: 'Keytype Fidget', default_price: 3.00, category: 'Fidget' },
+  { name: 'Big Spiral Cone Fidget', default_price: 4.00, category: 'Fidget' },
+  { name: 'Spiral Cone Fidget', default_price: 3.00, category: 'Fidget' },
   { name: 'Hexagon Fidget', default_price: 6.00, category: 'Fidget' },
 
   // Other
   { name: 'Big Egg', default_price: 8.00, category: 'Other' },
   { name: 'Egg', default_price: 3.00, category: 'Other' },
   { name: 'Lamp', default_price: 20.00, category: 'Other' },
-  { name: 'Knight', default_price: 5.00, category: 'Other' },
 ];
 
 async function seed(): Promise<void> {

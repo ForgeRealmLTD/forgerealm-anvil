@@ -34,7 +34,7 @@ app.use(
 app.use(express.json());
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'forgerealm-pos' });
+  res.json({ status: 'ok', service: 'forgerealm-anvil' });
 });
 
 app.use('/api/auth', authRouter);

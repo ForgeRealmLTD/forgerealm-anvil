@@ -123,7 +123,7 @@ async function exportCSV(
   const lines: string[] = [];
   const sessionDate = new Date(session.date).toLocaleDateString('en-GB');
 
-  lines.push(`ForgeRealm POS - Sales Report`);
+  lines.push(`ForgeRealm Anvil - Sales Report`);
   lines.push(`Session: ${session.name}`);
   lines.push(`Location: ${session.location || 'N/A'}`);
   lines.push(`Date: ${sessionDate}`);
@@ -219,7 +219,7 @@ async function exportXLSX(
   stockRows: StockRow[]
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'ForgeRealm POS';
+  workbook.creator = 'ForgeRealm Anvil';
   workbook.created = new Date();
 
   const sessionDate = new Date(session.date).toLocaleDateString('en-GB');

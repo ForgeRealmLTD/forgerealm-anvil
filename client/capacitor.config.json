@@ -1,6 +1,6 @@
 {
   "appId": "uk.co.forgerealm.pos",
-  "appName": "ForgeRealm POS",
+  "appName": "ForgeRealm Anvil",
   "webDir": "dist",
   "android": {
     "allowMixedContent": false

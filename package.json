@@ -1,7 +1,7 @@
 {
-  "name": "forgerealm-pos",
+  "name": "forgerealm-anvil",
   "version": "1.0.0",
-  "description": "ForgeRealm POS - Real-time stall sales tracker",
+  "description": "ForgeRealm Anvil - the internal tool ForgeRealm Ltd runs on: POS, Mini Mall stock, expenses",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

@@ -82,7 +82,7 @@ export default function Welcome() {
               </div>
             ) : sessions.length === 0 ? (
               <>
-                <p className="text-lg text-gray-400 mb-2">Welcome to ForgeRealm POS</p>
+                <p className="text-lg text-gray-400 mb-2">Welcome to ForgeRealm Anvil</p>
                 <p className="text-sm text-gray-500/80 leading-relaxed">
                   Create your stall session from the sidebar to start tracking sales.
                 </p>

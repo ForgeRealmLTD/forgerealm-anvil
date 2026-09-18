@@ -2,8 +2,12 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { pool } from './index';
 
-const USERNAME = process.argv[2] || process.env.POS_ADMIN_USER || 'admin';
-const PASSWORD = process.argv[3] || process.env.POS_ADMIN_PASS || 'forgerealm';
+// ANVIL_* is the current prefix; POS_* kept as a fallback so existing
+// deploy environments don't break on the rename.
+const USERNAME =
+  process.argv[2] || process.env.ANVIL_ADMIN_USER || process.env.POS_ADMIN_USER || 'admin';
+const PASSWORD =
+  process.argv[3] || process.env.ANVIL_ADMIN_PASS || process.env.POS_ADMIN_PASS || 'forgerealm';
 
 async function createUser(): Promise<void> {
   const client = await pool.connect();

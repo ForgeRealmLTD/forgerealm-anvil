@@ -9,7 +9,7 @@
     "migrate": "tsx db/migrate.ts",
     "seed": "tsx db/seed.ts",
     "create-user": "tsx db/create-user.ts",
-    "seed:anvil": "tsx db/seed-anvil.ts"
+    "import:catalogue": "tsx db/import-catalogue.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

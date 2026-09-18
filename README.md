@@ -73,9 +73,9 @@ npm run migrate            # applies db/migrations/*.sql in order
 
 cd server
 npx tsx db/create-user.ts <username> <password>   # login credentials
-npm run seed:anvil         # optional: MM12 catalogue + sample data for the
-                           # Mini Mall and Expenses charts (refuses remote DBs
-                           # unless ALLOW_REMOTE_SEED=1 — the quantities are fake)
+npm run import:catalogue   # optional: creates the 50 MM12 bays with the real
+                           # bay codes, names and prices at ZERO quantities, so
+                           # you only type the counts. Safe to re-run.
 ```
 
 ### Development
@@ -126,7 +126,7 @@ All routes live under `/api`, JWT-protected except `/auth/login` and `/health`:
 | `npm run build` | Build client for production |
 | `npm start` | Start production server |
 | `npm run migrate` | Apply pending migrations |
-| `npm run seed:anvil` | Seed Mini Mall + Expenses sample data |
+| `npm run import:catalogue` | Create the MM12 bays from the real catalogue at zero stock |
 | `npm run create-user` | Create a login user |
 
 ---

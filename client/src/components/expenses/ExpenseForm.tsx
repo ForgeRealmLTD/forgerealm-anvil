@@ -40,6 +40,24 @@ export default function ExpenseForm({ categories, editing, defaultMonth, onClose
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Local copy so a category added here is selectable immediately, before the
+  // parent refetches.
+  const [cats, setCats] = useState(categories);
+  const [newCategory, setNewCategory] = useState<string | null>(null);
+
+  const addCategory = async () => {
+    const name = (newCategory || '').trim();
+    if (!name) { setNewCategory(null); return; }
+    try {
+      const created = await apiPost<ExpenseCategory>('/expenses/categories', { name });
+      setCats((c) => [...c, created]);
+      setForm((f) => ({ ...f, category_id: created.id }));
+      setNewCategory(null);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add category');
+    }
+  };
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -137,14 +155,43 @@ export default function ExpenseForm({ categories, editing, defaultMonth, onClose
           </label>
         </div>
 
-        <label className="block">
-          <span className="text-[11px] text-gray-500">Category</span>
-          <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)} className={inputCls}>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id} className="bg-card">{c.name}</option>
-            ))}
-          </select>
-        </label>
+        <div className="block">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] text-gray-500">Category</span>
+            <button
+              type="button"
+              onClick={() => setNewCategory(newCategory === null ? '' : null)}
+              className="text-[11px] text-gold hover:text-gold-light"
+            >
+              {newCategory === null ? '+ New category' : 'Cancel'}
+            </button>
+          </div>
+          {newCategory === null ? (
+            <select value={form.category_id} onChange={(e) => set('category_id', e.target.value)} className={inputCls}>
+              {cats.map((c) => (
+                <option key={c.id} value={c.id} className="bg-card">{c.name}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addCategory(); } }}
+                placeholder="e.g. Travel & fuel"
+                className={inputCls}
+              />
+              <button
+                type="button"
+                onClick={() => void addCategory()}
+                className="shrink-0 px-4 h-11 rounded-lg bg-gradient-gold text-navy text-xs font-semibold active:scale-95 transition-transform"
+              >
+                Add
+              </button>
+            </div>
+          )}
+        </div>
 
         <label className="block">
           <span className="text-[11px] text-gray-500">Description</span>

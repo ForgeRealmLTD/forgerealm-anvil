@@ -8,6 +8,7 @@ import ShelfHeatmap from '../components/minimall/ShelfHeatmap';
 import SellThroughBars from '../components/minimall/SellThroughBars';
 import ProductSheet from '../components/minimall/ProductSheet';
 import CloseMonthSheet from '../components/minimall/CloseMonthSheet';
+import SlotForm from '../components/minimall/SlotForm';
 import type { MmOverview, MmProductRow } from '../types-anvil';
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -41,6 +42,8 @@ export default function MiniMall() {
   const [selected, setSelected] = useState<MmProductRow | null>(null);
   const [closing, setClosing] = useState(false);
   const [openingCycle, setOpeningCycle] = useState(false);
+  // null = closed; { row } = editing that bay; { row: null } = adding a new one
+  const [slotForm, setSlotForm] = useState<{ row: MmProductRow | null } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -77,6 +80,9 @@ export default function MiniMall() {
   const rollup = data?.rollup;
   const hasShelf = (data?.slots.length ?? 0) > 0;
   const flagged = (data?.products ?? []).filter((p) => p.flag);
+  // Widest tier wins, so a shelf that isn't ten-across still auto-fills
+  // sensible tier/position defaults in the bay form.
+  const slotsPerTier = Math.max(10, ...(data?.slots ?? []).map((s) => s.position));
 
   return (
     <motion.div
@@ -101,7 +107,17 @@ export default function MiniMall() {
             )}
           </p>
         </div>
-        <MonthSelector value={month} onChange={setMonth} />
+        <div className="flex items-center gap-2">
+          {hasShelf && (
+            <button
+              onClick={() => setSlotForm({ row: null })}
+              className="h-11 md:h-9 px-3.5 rounded-xl bg-gradient-gold text-navy text-xs font-semibold shadow-glow-gold-sm active:scale-95 transition-transform"
+            >
+              + Bay
+            </button>
+          )}
+          <MonthSelector value={month} onChange={setMonth} />
+        </div>
       </div>
 
       {loading ? (
@@ -122,9 +138,16 @@ export default function MiniMall() {
           <img src="/logo.png" alt="" className="w-16 h-16 rounded-2xl mx-auto opacity-60" />
           <h2 className="font-display text-xl text-white mt-4">The shelf is empty</h2>
           <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-            No MM12 slots exist yet. Run the sample seed, or add slots to lay out the five-tier
-            shelf with your bay codes.
+            Add your bays and the shelf appears here — position, product, price and both stock
+            counts. The form stays open and steps through the bay numbers, so the whole unit is
+            one pass.
           </p>
+          <button
+            onClick={() => setSlotForm({ row: null })}
+            className="mt-5 px-5 py-3 rounded-xl bg-gradient-gold text-navy text-sm font-semibold shadow-glow-gold-sm active:scale-[0.98] transition-transform"
+          >
+            Add the first bay
+          </button>
         </Card>
       ) : (
         <>
@@ -320,7 +343,21 @@ export default function MiniMall() {
       )}
 
       {selected && (
-        <ProductSheet product={selected} onClose={() => setSelected(null)} onChanged={() => void load()} />
+        <ProductSheet
+          product={selected}
+          onClose={() => setSelected(null)}
+          onChanged={() => void load()}
+          onEdit={(row) => { setSelected(null); setSlotForm({ row }); }}
+        />
+      )}
+      {slotForm && (
+        <SlotForm
+          editing={slotForm.row}
+          slots={data?.slots ?? []}
+          slotsPerTier={slotsPerTier}
+          onClose={() => setSlotForm(null)}
+          onChanged={() => void load()}
+        />
       )}
       {closing && record && (
         <CloseMonthSheet

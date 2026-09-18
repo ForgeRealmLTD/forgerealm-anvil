@@ -51,6 +51,28 @@ router.get('/categories', async (_req: Request, res: Response) => {
   }
 });
 
+// Add a category beyond the eight seeded ones. Sorts after them by default.
+router.post('/categories', async (req: Request, res: Response) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+  try {
+    const result = await query(
+      `INSERT INTO expense_categories (name, sort_order)
+       VALUES ($1, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM expense_categories))
+       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+       RETURNING *`,
+      [name]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating category:', err);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
 // ── Recurring templates ───────────────────────────────────────────────────
 
 router.get('/recurring', async (_req: Request, res: Response) => {

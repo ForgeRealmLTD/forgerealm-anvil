@@ -8,6 +8,7 @@ interface ProductSheetProps {
   product: MmProductRow | null;
   onClose: () => void;
   onChanged: () => void;
+  onEdit?: (product: MmProductRow) => void;
 }
 
 type Action = 'to_display' | 'print_in' | 'off_display';
@@ -32,7 +33,7 @@ const ACTION_LABELS: Record<Action, { title: string; hint: string; cta: string }
 
 // Slot detail + stock actions. Bottom sheet on mobile (one-handed in front
 // of the shelf), centred modal on desktop.
-export default function ProductSheet({ product, onClose, onChanged }: ProductSheetProps) {
+export default function ProductSheet({ product, onClose, onChanged, onEdit }: ProductSheetProps) {
   const [action, setAction] = useState<Action>('to_display');
   const [qty, setQty] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -105,11 +106,24 @@ export default function ProductSheet({ product, onClose, onChanged }: ProductShe
                 {product.not_for_sale ? ' · Not for sale' : ''}
               </p>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-300 p-1 -m-1" aria-label="Close">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(product)}
+                  className="text-gray-500 hover:text-gold p-1.5"
+                  aria-label="Edit bay"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11 15l-4 1 1-4 9.6-9.4z" />
+                  </svg>
+                </button>
+              )}
+              <button onClick={onClose} className="text-gray-500 hover:text-gray-300 p-1.5" aria-label="Close">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">

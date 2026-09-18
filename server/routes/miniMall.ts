@@ -165,66 +165,164 @@ router.get('/overview', async (req: Request, res: Response) => {
 
 // ── Slots ─────────────────────────────────────────────────────────────────
 
+// Create a bay. The product can be an existing one (product_id) or a brand new
+// one created inline (product_name + optional colour/category) — laying out the
+// shelf shouldn't mean a detour to the Products screen for every item. Back
+// stock can be set in the same call so one form covers a whole bay.
 router.post('/slots', async (req: Request, res: Response) => {
-  const { bay_number, tier, position, product_id, price, display_qty, not_for_sale } = req.body;
+  const {
+    bay_number, tier, position, product_id, product_name, colour, category,
+    price, display_qty, back_qty, not_for_sale,
+  } = req.body;
+
   if (!bay_number || !tier || !position) {
     res.status(400).json({ error: 'bay_number, tier and position are required' });
     return;
   }
+  if (!product_id && !String(product_name || '').trim()) {
+    res.status(400).json({ error: 'Pick a product or give a name for a new one' });
+    return;
+  }
+
+  const client = await pool.connect();
   try {
-    const result = await query(
+    await client.query('BEGIN');
+
+    let resolvedProductId: string = product_id;
+    if (!resolvedProductId) {
+      const created = await client.query(
+        `INSERT INTO products (name, default_price, category, colour)
+         VALUES ($1, COALESCE($2, 0), $3, $4) RETURNING id`,
+        [String(product_name).trim(), price ?? null, category || null, colour || null]
+      );
+      resolvedProductId = created.rows[0].id;
+    } else if (colour !== undefined || category !== undefined) {
+      // Keep the shared product record in step with what was typed here.
+      await client.query(
+        `UPDATE products
+           SET colour = COALESCE($2, colour),
+               category = COALESCE($3, category),
+               updated_at = NOW()
+         WHERE id = $1`,
+        [resolvedProductId, colour || null, category || null]
+      );
+    }
+
+    const slot = await client.query(
       `INSERT INTO mm_slots (bay_number, tier, position, product_id, price, display_qty, not_for_sale)
        VALUES ($1, $2, $3, $4, $5, COALESCE($6, 0), COALESCE($7, false))
        RETURNING *`,
-      [bay_number, tier, position, product_id || null, price ?? null, display_qty, not_for_sale]
+      [bay_number, tier, position, resolvedProductId, price ?? null, display_qty, not_for_sale]
     );
-    res.status(201).json(result.rows[0]);
+
+    if (back_qty !== undefined && back_qty !== null) {
+      await client.query(
+        `INSERT INTO mm_back_stock (product_id, quantity) VALUES ($1, $2)
+         ON CONFLICT (product_id) DO UPDATE SET quantity = $2, updated_at = NOW()`,
+        [resolvedProductId, Math.max(0, Math.trunc(Number(back_qty) || 0))]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(slot.rows[0]);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     if (err?.code === '23505') {
       res.status(409).json({ error: 'That bay number or shelf position is already taken' });
       return;
     }
     console.error('Error creating slot:', err);
     res.status(500).json({ error: 'Failed to create slot' });
+  } finally {
+    client.release();
   }
 });
 
+// Edit a bay. Accepts slot fields, the product's name/colour/category, and an
+// absolute back-stock quantity — the edit form covers all three.
 router.patch('/slots/:id', async (req: Request, res: Response) => {
-  const allowed = ['bay_number', 'tier', 'position', 'product_id', 'price', 'display_qty', 'not_for_sale'];
+  const slotFields = ['bay_number', 'tier', 'position', 'product_id', 'price', 'display_qty', 'not_for_sale'];
   const sets: string[] = [];
   const values: unknown[] = [];
-  for (const key of allowed) {
+  for (const key of slotFields) {
     if (key in req.body) {
       values.push(req.body[key]);
       sets.push(`${key} = $${values.length}`);
     }
   }
-  if (sets.length === 0) {
+  const touchesProduct = ['product_name', 'colour', 'category'].some((k) => k in req.body);
+  const touchesBack = req.body.back_qty !== undefined && req.body.back_qty !== null;
+
+  if (sets.length === 0 && !touchesProduct && !touchesBack) {
     res.status(400).json({ error: 'No fields to update' });
     return;
   }
-  values.push(req.params.id);
+
+  const client = await pool.connect();
   try {
-    const result = await query(
-      `UPDATE mm_slots SET ${sets.join(', ')}, updated_at = NOW()
-       WHERE id = $${values.length} RETURNING *`,
-      values
-    );
-    if (result.rows.length === 0) {
+    await client.query('BEGIN');
+
+    let slot;
+    if (sets.length > 0) {
+      values.push(req.params.id);
+      const updated = await client.query(
+        `UPDATE mm_slots SET ${sets.join(', ')}, updated_at = NOW()
+         WHERE id = $${values.length} RETURNING *`,
+        values
+      );
+      slot = updated.rows[0];
+    } else {
+      slot = (await client.query('SELECT * FROM mm_slots WHERE id = $1', [req.params.id])).rows[0];
+    }
+
+    if (!slot) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Slot not found' });
       return;
     }
-    res.json(result.rows[0]);
+
+    if (slot.product_id && touchesProduct) {
+      await client.query(
+        `UPDATE products
+           SET name = COALESCE($2, name),
+               colour = COALESCE($3, colour),
+               category = COALESCE($4, category),
+               updated_at = NOW()
+         WHERE id = $1`,
+        [
+          slot.product_id,
+          String(req.body.product_name || '').trim() || null,
+          req.body.colour || null,
+          req.body.category || null,
+        ]
+      );
+    }
+
+    if (slot.product_id && touchesBack) {
+      await client.query(
+        `INSERT INTO mm_back_stock (product_id, quantity) VALUES ($1, $2)
+         ON CONFLICT (product_id) DO UPDATE SET quantity = $2, updated_at = NOW()`,
+        [slot.product_id, Math.max(0, Math.trunc(Number(req.body.back_qty) || 0))]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(slot);
   } catch (err: any) {
+    await client.query('ROLLBACK');
     if (err?.code === '23505') {
       res.status(409).json({ error: 'That bay number or shelf position is already taken' });
       return;
     }
     console.error('Error updating slot:', err);
     res.status(500).json({ error: 'Failed to update slot' });
+  } finally {
+    client.release();
   }
 });
 
+// Clears the bay. The product itself and its back stock survive — emptying a
+// shelf position is a merchandising change, not a deletion of the item.
 router.delete('/slots/:id', async (req: Request, res: Response) => {
   try {
     await query('DELETE FROM mm_slots WHERE id = $1', [req.params.id]);
@@ -232,6 +330,28 @@ router.delete('/slots/:id', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Error deleting slot:', err);
     res.status(500).json({ error: 'Failed to delete slot' });
+  }
+});
+
+// Absolute set of a product's back-stock count — the "I've just counted the
+// box" action, as opposed to the signed movements above.
+router.put('/back-stock/:productId', async (req: Request, res: Response) => {
+  const qty = Math.max(0, Math.trunc(Number(req.body.quantity)));
+  if (!Number.isFinite(qty)) {
+    res.status(400).json({ error: 'quantity is required' });
+    return;
+  }
+  try {
+    const result = await query(
+      `INSERT INTO mm_back_stock (product_id, quantity) VALUES ($1, $2)
+       ON CONFLICT (product_id) DO UPDATE SET quantity = $2, updated_at = NOW()
+       RETURNING *`,
+      [req.params.productId, qty]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error setting back stock:', err);
+    res.status(500).json({ error: 'Failed to set back stock' });
   }
 });
 

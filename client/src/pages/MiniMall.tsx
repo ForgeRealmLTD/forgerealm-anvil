@@ -232,11 +232,12 @@ export default function MiniMall() {
 
           {/* The shelf */}
           <Card>
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="font-display text-lg font-semibold text-white">The shelf</h2>
-              <span className="text-[11px] text-gray-500">Units sold · {monthName}</span>
-            </div>
-            <ShelfHeatmap slots={data!.slots} products={data!.products} onSelect={setSelected} />
+            <ShelfHeatmap
+              slots={data!.slots}
+              products={data!.products}
+              monthName={monthName}
+              onSelect={setSelected}
+            />
           </Card>
 
           {/* Sell-through ranking */}

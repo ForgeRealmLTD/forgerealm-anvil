@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="client/public/logo.png" alt="ForgeRealm POS" width="120" height="120" />
+  <img src="client/public/logo.png" alt="ForgeRealm Anvil" width="120" height="120" />
 </p>
 
-<h1 align="center">ForgeRealm POS</h1>
+<h1 align="center">ForgeRealm Anvil</h1>
 
 <p align="center">
-  <strong>Real-time stall sales tracker with style.</strong><br/>
-  A sleek, dark-themed point-of-sale system built for tracking live event and market stall sales.
+  <strong>The internal tool ForgeRealm Ltd runs on.</strong><br/>
+  Point of sale, Mini Mall stock reconciliation, and expenses — one navy &amp; gold app.
 </p>
 
 <p align="center">
@@ -22,45 +22,28 @@
 
 ## Overview
 
-ForgeRealm POS is a full-stack sales tracking application designed for market stalls, pop-up shops, and live events. It features a navy & gold glassmorphism UI with smooth animations, real-time analytics, and professional Excel exports.
+ForgeRealm Anvil is the single internal tool for running ForgeRealm Ltd (3D printing and
+artisan maker business, Leeds). Three tabs, each a full area of the business:
 
-## Features
-
-- **Session Management**: create, edit, close, and delete sales sessions per event or stall.
-- **Live Sales Recording**: tap products from a categorised grid, set quantity and price, and log instantly.
-- **Cash & Card Tracking**: tag each sale as cash or card with a single toggle.
-- **SumUp Card Fee Deduction**: one-click toggle to apply 1.69% card processing fees across a session.
-- **Real-time Analytics**: revenue, units sold, best-selling product, and per-product breakdowns.
-- **Sale Editing & Undo**: modify or remove any recorded sale on the fly.
-- **Professional Exports**: download session reports as styled XLSX (with summary and detail sheets) or CSV.
-- **Product Catalog**: manage your product library with names, default prices, and categories.
-- **JWT Authentication**: single-user login with bcrypt-hashed credentials.
-- **Animated UI**: Framer Motion page transitions, hover effects, shimmer, and glow animations.
-- **Responsive**: works on desktop and mobile with a collapsible sidebar.
+| Tab | What it does |
+|-----|--------------|
+| **Point of Sale** | Live sales recording at market stalls and events — product grid, cart, cash/card, SumUp reconciliation, session analytics, XLSX/CSV exports. |
+| **Mini Mall** | Bay MM12 at the Merrion Centre, where sales are reconciled from stock counts rather than till data. Models the monthly cycle (opening stock → restocks → closing count → derived units sold), a five-tier shelf with first-class bay positions (`MM12.14`), back stock, and a shelf heatmap showing which slots actually sell. |
+| **Expenses** | Every pound out, by month and category — filament, pitch fees, the recurring MM12 shelf fee, equipment, packaging, software, compliance. Month-vs-month comparison and a twelve-month trend. Expenses tag to a channel so the Mini Mall tab pulls its shelf fee automatically. |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion |
+| Typography | Lora (display) + Poppins (UI) |
 | Backend | Node.js, Express, TypeScript (tsx) |
-| Database | PostgreSQL (Neon) |
-| Auth | JWT + bcrypt |
+| Database | PostgreSQL (Neon), numbered SQL migrations |
+| Auth | JWT + bcrypt (single user) |
 | Export | ExcelJS |
-| Hosting | Render (free tier) |
-
-## Theme
-
-Built around a **navy & gold** palette with glassmorphism effects:
-
-```
-Navy        #0a1628     primary background
-Navy Light  #0f1d32     elevated surfaces
-Gold        #d4a843     accent, buttons, branding
-Gold Light  #e4c373     hover states
-Surface     #111827     cards, panels
-Glass       rgba(255,255,255,0.03) + backdrop-blur
-```
+| Card payments | SumUp API (scheduled polling) |
+| Hosting | Netlify — client + Express wrapped as a serverless function |
+| Mobile | Capacitor (Android), offline read-cache + write queue |
 
 ## Getting Started
 
@@ -72,132 +55,68 @@ Glass       rgba(255,255,255,0.03) + backdrop-blur
 ### Setup
 
 ```bash
-# Clone the repo
-git clone https://github.com/IshmamDC217/forgerealm-pos.git
-cd forgerealm-pos
+git clone https://github.com/IshmamDC217/forgerealm-anvil.git
+cd forgerealm-anvil
 
 # Install all dependencies (root, server, client)
 npm run install:all
 
 # Configure environment
-cp server/.env.example server/.env
+cp .env.example server/.env
 # Edit server/.env with your DATABASE_URL and JWT_SECRET
 ```
 
-### Environment Variables
-
-Create `server/.env`:
-
-```env
-DATABASE_URL=postgresql://user:password@host:5432/dbname?sslmode=require
-JWT_SECRET=your-secret-key
-```
-
-### Database Setup
+### Database
 
 ```bash
-# Run migrations (creates tables)
-npm run migrate
+npm run migrate            # applies db/migrations/*.sql in order
 
-# Create login credentials
-cd server && npx tsx db/create-user.ts <username> <password>
+cd server
+npx tsx db/create-user.ts <username> <password>   # login credentials
+npm run import:catalogue   # optional: creates the 50 MM12 bays with the real
+                           # bay codes, names and prices at ZERO quantities, so
+                           # you only type the counts. Safe to re-run.
 ```
 
 ### Development
 
 ```bash
-npm run dev
+npm run dev    # server on :3001, client on :5173
 ```
 
-This starts both the server (port 3001) and client (port 5173) concurrently.
+### Production
 
-### Production Build
-
-```bash
-npm run build    # Builds the React client
-npm start        # Starts the Express server (serves client from dist/)
-```
-
-## API Endpoints
-
-### Public
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/login` | Authenticate and receive JWT |
-| `GET` | `/api/health` | Service health check |
-
-### Protected (Bearer token required)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/auth/me` | Current user info |
-| `GET` | `/api/sessions` | List all sessions with stats |
-| `POST` | `/api/sessions` | Create new session |
-| `GET` | `/api/sessions/:id` | Session details with analytics |
-| `PATCH` | `/api/sessions/:id` | Update session |
-| `DELETE` | `/api/sessions/:id` | Delete session (cascades) |
-| `GET` | `/api/products` | List all products |
-| `POST` | `/api/products` | Create product |
-| `PATCH` | `/api/products/:id` | Update product |
-| `DELETE` | `/api/products/:id` | Delete product |
-| `GET` | `/api/sales/session/:id` | Sales for a session |
-| `POST` | `/api/sales` | Record a sale |
-| `PATCH` | `/api/sales/:id` | Edit a sale |
-| `DELETE` | `/api/sales/:id` | Delete a sale |
-| `GET` | `/api/export/:id?format=xlsx` | Export session as Excel |
-| `GET` | `/api/export/:id?format=csv` | Export session as CSV |
-
-## Project Structure
-
-```
-forgerealm-pos/
-├── client/
-│   ├── public/
-│   │   └── logo.png
-│   ├── src/
-│   │   ├── components/       # Sidebar, HomeButton, PageTransition
-│   │   ├── contexts/         # AuthContext, SessionsContext
-│   │   ├── pages/            # Welcome, SessionView, Products, Login
-│   │   ├── utils/            # API client, currency formatter
-│   │   ├── App.tsx
-│   │   └── index.css         # Tailwind + custom animations
-│   └── tailwind.config.ts
-├── server/
-│   ├── db/
-│   │   ├── index.ts          # PostgreSQL pool
-│   │   ├── migrate.ts        # Schema migrations
-│   │   ├── seed.ts           # Sample data seeder
-│   │   └── create-user.ts    # User creation script
-│   ├── middleware/
-│   │   └── auth.ts           # JWT verification
-│   ├── routes/
-│   │   ├── auth.ts           # Login endpoints
-│   │   ├── sessions.ts       # Session CRUD
-│   │   ├── products.ts       # Product CRUD
-│   │   ├── sales.ts          # Sales CRUD
-│   │   └── export.ts         # XLSX/CSV generation
-│   └── index.ts              # Express app entry
-├── render.yaml               # Render deployment config
-└── package.json
-```
-
-## Deployment
-
-Configured for [Render](https://render.com) with a Neon PostgreSQL database.
-
-The `render.yaml` blueprint handles:
-- Installing dependencies
-- Building the React client
-- Running database migrations
-- Creating the initial user (via `POS_ADMIN_USER` / `POS_ADMIN_PASS` env vars)
-
-Required Render environment variables:
+Deployed on Netlify: the build publishes `client/dist` and routes `/api/*` through
+`netlify/functions/api.ts` (the Express app via `serverless-http`). A scheduled function
+(`netlify/functions/sumup-poll.ts`) polls SumUp for card transactions.
 
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
 | `JWT_SECRET` | Secret for signing JWT tokens |
-| `POS_ADMIN_USER` | Login username |
-| `POS_ADMIN_PASS` | Login password |
+| `ANVIL_ADMIN_USER` / `ANVIL_ADMIN_PASS` | Login credentials for `create-user` (legacy `POS_ADMIN_*` names still work) |
+| `VITE_API_URL` | Absolute API URL for production/Capacitor builds |
+| `CORS_ORIGIN` | Comma-separated allowed origins |
+
+## API Areas
+
+All routes live under `/api`, JWT-protected except `/auth/login` and `/health`:
+
+- `/sessions`, `/groups`, `/sales`, `/products`, `/stock`, `/global-stock`, `/export`, `/sumup` — Point of Sale
+- `/mini-mall` — slots, movements, monthly cycles, overview (shelf heatmap data)
+- `/expenses` — expenses, categories, recurring templates, month summary
+
+## Data Model Notes
+
+- **Mini Mall stock is independent of POS stock.** `global_stock` is the central pool
+  stalls draw from; `mm_slots` / `mm_back_stock` belong to bay MM12 only.
+- **Units sold at the Mini Mall are derived**, not recorded: opening display + restocks
+  during the month − closing display. Movements (`mm_movements`) are dated so the maths
+  holds; months are opened and closed explicitly (`mm_months`, `mm_counts`).
+- **Recurring expenses materialise on view** — no scheduler. A unique partial index
+  guarantees one instance per template per month.
+- Migrations are numbered SQL files in `server/db/migrations/`, applied once each and
+  recorded in `schema_migrations`. They are additive — never destructive.
 
 ## Scripts
 
@@ -206,13 +125,13 @@ Required Render environment variables:
 | `npm run dev` | Start dev server + client |
 | `npm run build` | Build client for production |
 | `npm start` | Start production server |
-| `npm run migrate` | Run database migrations |
-| `npm run seed` | Seed sample data |
+| `npm run migrate` | Apply pending migrations |
+| `npm run import:catalogue` | Create the MM12 bays from the real catalogue at zero stock |
 | `npm run create-user` | Create a login user |
 
 ---
 
 <p align="center">
   <img src="client/public/logo.png" alt="ForgeRealm" width="32" height="32" /><br/>
-  <sub>Built by <strong>Ishmam Ahmed</strong></sub>
+  <sub>Built by <strong>Ishmam Ahmed</strong> · ForgeRealm Ltd, Leeds</sub>
 </p>

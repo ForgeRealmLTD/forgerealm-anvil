@@ -27,7 +27,7 @@ export default function MobileHeader({ onToggleSidebar }: MobileHeaderProps) {
         <img src="/logo.png" alt="ForgeRealm" className="w-7 h-7 rounded-md object-cover" />
         <h1
           className="text-lg font-bold"
-          style={{ backgroundImage: 'linear-gradient(135deg, #d4a843, #e4c373)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Sora', sans-serif" }}
+          style={{ backgroundImage: 'linear-gradient(135deg, #d4a843, #e4c373)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Lora', Georgia, serif" }}
         >
           ForgeRealm
         </h1>

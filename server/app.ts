@@ -11,6 +11,8 @@ import exportRouter from './routes/export';
 import stockRouter from './routes/stock';
 import globalStockRouter from './routes/globalStock';
 import sumupRouter from './routes/sumup';
+import miniMallRouter from './routes/miniMall';
+import expensesRouter from './routes/expenses';
 
 function parseAllowedOrigins(raw: string | undefined): string[] {
   return (raw || '')
@@ -32,7 +34,7 @@ app.use(
 app.use(express.json());
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'forgerealm-pos' });
+  res.json({ status: 'ok', service: 'forgerealm-anvil' });
 });
 
 app.use('/api/auth', authRouter);
@@ -44,6 +46,8 @@ app.use('/api/export', requireAuth, exportRouter);
 app.use('/api/stock', requireAuth, stockRouter);
 app.use('/api/global-stock', requireAuth, globalStockRouter);
 app.use('/api/sumup', requireAuth, sumupRouter);
+app.use('/api/mini-mall', requireAuth, miniMallRouter);
+app.use('/api/expenses', requireAuth, expensesRouter);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);

@@ -18,7 +18,8 @@ export default {
         'glass-border': 'rgba(255, 255, 255, 0.08)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Poppins', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Lora', 'Georgia', 'serif'],
       },
       backgroundImage: {
         'gradient-gold': 'linear-gradient(135deg, #d4a843, #e4c373)',

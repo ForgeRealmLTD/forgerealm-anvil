@@ -1318,7 +1318,7 @@ export default function SessionView() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            className="fixed bottom-0 left-0 right-0 md:left-72 z-30 px-3 pb-3 pointer-events-none"
+            className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-72 z-30 px-3 pb-3 pointer-events-none"
           >
             <button
               type="button"

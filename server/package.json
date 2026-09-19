@@ -1,14 +1,15 @@
 {
-  "name": "forgerealm-pos-server",
+  "name": "forgerealm-anvil-server",
   "version": "1.0.0",
-  "description": "ForgeRealm POS tracking server",
+  "description": "ForgeRealm Anvil server",
   "main": "index.ts",
   "scripts": {
     "start": "node --import tsx index.ts",
     "dev": "tsx watch index.ts",
     "migrate": "tsx db/migrate.ts",
     "seed": "tsx db/seed.ts",
-    "create-user": "tsx db/create-user.ts"
+    "create-user": "tsx db/create-user.ts",
+    "import:catalogue": "tsx db/import-catalogue.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

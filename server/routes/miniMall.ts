@@ -35,7 +35,11 @@ router.get('/overview', async (req: Request, res: Response) => {
         FROM mm_slots s
         LEFT JOIN products p ON p.id = s.product_id
         ORDER BY s.tier, s.position`),
-      query(`SELECT product_id, quantity FROM mm_back_stock`),
+      query(`
+        SELECT b.product_id, b.quantity, b.updated_at,
+               p.name AS product_name, p.colour, p.category
+        FROM mm_back_stock b
+        JOIN products p ON p.id = b.product_id`),
     ]);
 
     const monthRecord = monthRes.rows[0] || null;
@@ -64,6 +68,17 @@ router.get('/overview', async (req: Request, res: Response) => {
     const backByProduct = new Map<string, number>(
       backRes.rows.map((r) => [r.product_id, Number(r.quantity)])
     );
+    // Display counts summed per product: a product normally owns one bay, but
+    // nothing stops it being merchandised across two, and the back-room totals
+    // must still add up.
+    const displayByProduct = new Map<string, number>();
+    for (const s of slotsRes.rows) {
+      if (!s.product_id) continue;
+      displayByProduct.set(
+        s.product_id,
+        (displayByProduct.get(s.product_id) || 0) + Number(s.display_qty)
+      );
+    }
     const restockedByProduct = new Map<string, number>(
       restockRes.rows.map((r) => [r.product_id, Number(r.restocked)])
     );
@@ -113,6 +128,7 @@ router.get('/overview', async (req: Request, res: Response) => {
           price,
           display_qty: Number(s.display_qty),
           back_qty: backQty,
+          total_qty: Number(s.display_qty) + backQty,
           opening_display: opening,
           restocked,
           closing_display: closing,
@@ -122,6 +138,55 @@ router.get('/overview', async (req: Request, res: Response) => {
           flag: lowDisplay ? (backQty > 0 ? 'restock' : 'print') : null,
         };
       });
+
+    // ── Back of shop ──────────────────────────────────────────────────
+    // What's in storage rather than on the shelf: the units staff can put out.
+    // Built from mm_back_stock outwards, not from the shelf, so a product with
+    // stock in the back but no bay yet (a cleared bay keeps its back stock, and
+    // a print run can land before the bay exists) still shows up instead of
+    // silently vanishing from the tab.
+    const slotByProduct = new Map<string, { slot_id: string; bay_number: number }>();
+    for (const s of slotsRes.rows) {
+      if (s.product_id && !slotByProduct.has(s.product_id)) {
+        slotByProduct.set(s.product_id, { slot_id: s.id, bay_number: s.bay_number });
+      }
+    }
+
+    const backRoom = backRes.rows
+      .map((r) => {
+        const backQty = Number(r.quantity);
+        const onDisplay = displayByProduct.get(r.product_id) || 0;
+        const slot = slotByProduct.get(r.product_id) || null;
+        return {
+          product_id: r.product_id,
+          name: r.product_name,
+          colour: r.colour,
+          category: r.category,
+          back_qty: backQty,
+          display_qty: onDisplay,
+          total_qty: backQty + onDisplay,
+          slot_id: slot?.slot_id ?? null,
+          bay_number: slot?.bay_number ?? null,
+          bay_code: slot ? `${BAY_PREFIX}.${slot.bay_number}` : null,
+          // No bay means nowhere to put it: staff have to assign one before a
+          // restock can be recorded, so the tab has to say so.
+          shelved: slot !== null,
+          needs_restock: slot !== null && onDisplay <= LOW_DISPLAY_THRESHOLD,
+          updated_at: r.updated_at,
+        };
+      })
+      .filter((r) => r.back_qty > 0)
+      .sort(
+        (a, b) =>
+          Number(b.needs_restock) - Number(a.needs_restock) ||
+          Number(a.shelved) - Number(b.shelved) ||
+          b.back_qty - a.back_qty ||
+          a.name.localeCompare(b.name)
+      );
+
+    // Stock held at MM12 = what's on the shelf plus what's in the back.
+    const unitsOnDisplay = slotsRes.rows.reduce((n, s) => n + Number(s.display_qty), 0);
+    const unitsInBack = backRes.rows.reduce((n, r) => n + Number(r.quantity), 0);
 
     // Shelf fee for this month comes from the Expenses tab (mini_mall channel).
     const feeRes = await query(
@@ -149,6 +214,13 @@ router.get('/overview', async (req: Request, res: Response) => {
       })),
       products,
       back_stock: backRes.rows.map((r) => ({ ...r, quantity: Number(r.quantity) })),
+      back_room: backRoom,
+      stock: {
+        on_display: unitsOnDisplay,
+        in_back: unitsInBack,
+        total: unitsOnDisplay + unitsInBack,
+        unshelved_lines: backRoom.filter((r) => !r.shelved).length,
+      },
       rollup: {
         units_sold: unitsSold,
         gross_revenue: grossRevenue,
@@ -352,6 +424,103 @@ router.put('/back-stock/:productId', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Error setting back stock:', err);
     res.status(500).json({ error: 'Failed to set back stock' });
+  }
+});
+
+// Put stock into the back of the store. Works for a product that has never
+// been on the shelf — a print run can land before the bay exists, and a bay
+// that gets cleared keeps its back stock — so this accepts a brand new product
+// inline the same way POST /slots does, rather than forcing a detour.
+//
+//   mode 'add' (default) — units arriving, logged as print_in
+//   mode 'set'           — "I've just counted the box", logged as the signed
+//                          adjust_back difference so the ledger stays honest
+router.post('/back-stock', async (req: Request, res: Response) => {
+  const { product_id, product_name, colour, category, note } = req.body;
+  const mode = req.body.mode === 'set' ? 'set' : 'add';
+  const qty = Math.trunc(Number(req.body.quantity));
+
+  if (!Number.isFinite(qty)) {
+    res.status(400).json({ error: 'quantity is required' });
+    return;
+  }
+  if (mode === 'add' && qty <= 0) {
+    res.status(400).json({ error: 'Quantity must be at least 1' });
+    return;
+  }
+  if (mode === 'set' && qty < 0) {
+    res.status(400).json({ error: 'A counted quantity cannot be negative' });
+    return;
+  }
+  if (!product_id && !String(product_name || '').trim()) {
+    res.status(400).json({ error: 'Pick a product or give a name for a new one' });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    let resolvedProductId: string = product_id;
+    if (!resolvedProductId) {
+      const created = await client.query(
+        `INSERT INTO products (name, default_price, category, colour)
+         VALUES ($1, 0, $2, $3) RETURNING id`,
+        [String(product_name).trim(), category || null, colour || null]
+      );
+      resolvedProductId = created.rows[0].id;
+    } else if (colour || category) {
+      await client.query(
+        `UPDATE products
+           SET colour = COALESCE($2, colour),
+               category = COALESCE($3, category),
+               updated_at = NOW()
+         WHERE id = $1`,
+        [resolvedProductId, colour || null, category || null]
+      );
+    }
+
+    const beforeRes = await client.query(
+      `SELECT quantity FROM mm_back_stock WHERE product_id = $1 FOR UPDATE`,
+      [resolvedProductId]
+    );
+    const before = beforeRes.rows.length ? Number(beforeRes.rows[0].quantity) : 0;
+    const delta = mode === 'set' ? qty - before : qty;
+
+    const updated = await client.query(
+      `INSERT INTO mm_back_stock (product_id, quantity) VALUES ($1, $2)
+       ON CONFLICT (product_id) DO UPDATE SET quantity = $2, updated_at = NOW()
+       RETURNING *`,
+      [resolvedProductId, before + delta]
+    );
+
+    if (delta !== 0) {
+      await client.query(
+        `INSERT INTO mm_movements (product_id, type, quantity, note)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          resolvedProductId,
+          mode === 'set' ? 'adjust_back' : 'print_in',
+          delta,
+          note || (mode === 'set' ? `Counted ${qty} in the back` : null),
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      ...updated.rows[0],
+      quantity: Number(updated.rows[0].quantity),
+      product_id: resolvedProductId,
+      previous_quantity: before,
+      delta,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error adding back stock:', err);
+    res.status(500).json({ error: 'Failed to add back stock' });
+  } finally {
+    client.release();
   }
 });
 

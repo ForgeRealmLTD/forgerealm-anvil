@@ -32,6 +32,7 @@ export interface MmProductRow {
   price: number | null;
   display_qty: number;
   back_qty: number;
+  total_qty: number;
   opening_display: number | null;
   restocked: number;
   closing_display: number;
@@ -39,6 +40,35 @@ export interface MmProductRow {
   revenue: number;
   sell_through: number | null;
   flag: MmFlag;
+}
+
+// A line in storage at the back of the store: stock that isn't on the shelf
+// but that staff can put out. `shelved` is false when the product has no bay
+// yet, which is the one case that blocks a restock.
+export interface MmBackRoomRow {
+  product_id: string;
+  name: string;
+  colour: string | null;
+  category: string | null;
+  back_qty: number;
+  display_qty: number;
+  total_qty: number;
+  slot_id: string | null;
+  bay_number: number | null;
+  bay_code: string | null;
+  shelved: boolean;
+  needs_restock: boolean;
+  updated_at: string;
+}
+
+// Seed values for a bay being created from a product that already has back
+// stock but no shelf position yet.
+export interface MmSlotPreset {
+  product_id: string;
+  name: string;
+  colour: string | null;
+  category: string | null;
+  back_qty: number;
 }
 
 export interface MmMonth {
@@ -55,6 +85,13 @@ export interface MmOverview {
   slots: MmSlot[];
   products: MmProductRow[];
   back_stock: { product_id: string; quantity: number }[];
+  back_room: MmBackRoomRow[];
+  stock: {
+    on_display: number;
+    in_back: number;
+    total: number;
+    unshelved_lines: number;
+  };
   rollup: {
     units_sold: number;
     gross_revenue: number;

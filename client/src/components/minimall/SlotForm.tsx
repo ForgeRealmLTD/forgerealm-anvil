@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../utils/api';
-import type { MmProductRow, MmSlot } from '../../types-anvil';
+import type { MmProductRow, MmSlot, MmSlotPreset } from '../../types-anvil';
 
 interface ProductOption {
   id: string;
@@ -13,6 +13,9 @@ interface ProductOption {
 
 interface SlotFormProps {
   editing: MmProductRow | null; // null = adding a new bay
+  // Adding a bay for something already sitting in the back: the product and
+  // its counted back stock are known, only the shelf position is missing.
+  preset?: MmSlotPreset;
   slots: MmSlot[];
   slotsPerTier: number;
   onClose: () => void;
@@ -29,7 +32,7 @@ const labelCls = 'text-[11px] text-gray-500';
 // where it sits, what's in it, the Mini Mall price, and both stock counts —
 // so laying out the shelf is one pass through this form rather than a tour of
 // four screens. "Save & add next" keeps it open and advances the bay number.
-export default function SlotForm({ editing, slots, slotsPerTier, onClose, onChanged }: SlotFormProps) {
+export default function SlotForm({ editing, preset, slots, slotsPerTier, onClose, onChanged }: SlotFormProps) {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +53,18 @@ export default function SlotForm({ editing, slots, slotsPerTier, onClose, onChan
     bay_number: String(editing?.bay_number ?? nextFreeBay),
     tier: String(editing?.tier ?? Math.ceil(nextFreeBay / slotsPerTier)),
     position: String(editing?.position ?? ((nextFreeBay - 1) % slotsPerTier) + 1),
-    product_id: editing?.product_id ?? '',
-    product_name: editing?.name ?? '',
-    colour: editing?.colour ?? '',
-    category: editing?.category ?? '',
+    product_id: editing?.product_id ?? preset?.product_id ?? '',
+    product_name: editing?.name ?? preset?.name ?? '',
+    colour: editing?.colour ?? preset?.colour ?? '',
+    category: editing?.category ?? preset?.category ?? '',
     price: editing?.price != null ? String(editing.price) : '',
     display_qty: String(editing?.display_qty ?? 0),
-    back_qty: String(editing?.back_qty ?? 0),
+    // Carry the counted back stock through, or saving the bay would overwrite
+    // it with a zero.
+    back_qty: String(editing?.back_qty ?? preset?.back_qty ?? 0),
     not_for_sale: editing?.not_for_sale ?? false,
   }));
-  const [productQuery, setProductQuery] = useState(editing?.name ?? '');
+  const [productQuery, setProductQuery] = useState(editing?.name ?? preset?.name ?? '');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
@@ -222,10 +227,14 @@ export default function SlotForm({ editing, slots, slotsPerTier, onClose, onChan
           <div className="flex items-start justify-between">
             <div>
               <h3 className="font-display text-xl font-semibold text-white">
-                {editing ? `Edit ${editing.bay_code}` : 'Add a bay'}
+                {editing ? `Edit ${editing.bay_code}` : preset ? `A bay for ${preset.name}` : 'Add a bay'}
               </h3>
               <p className="text-[11px] text-gray-500 mt-0.5">
-                {editing ? 'Bay position, product, price and both stock counts.' : 'MM12 shelf position and what sits in it.'}
+                {editing
+                  ? 'Bay position, product, price and both stock counts.'
+                  : preset
+                    ? `${preset.back_qty} in the back already — pick where it goes on the shelf.`
+                    : 'MM12 shelf position and what sits in it.'}
               </p>
             </div>
             <button onClick={onClose} className="text-gray-500 hover:text-gray-300 p-1 -m-1" aria-label="Close">

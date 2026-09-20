@@ -5,11 +5,13 @@ import { formatCurrency } from '../utils/currency';
 import { useMonth, monthLabel, currentMonth } from '../utils/useMonth';
 import MonthSelector from '../components/MonthSelector';
 import ShelfHeatmap from '../components/minimall/ShelfHeatmap';
+import BackRoom from '../components/minimall/BackRoom';
+import BackStockForm from '../components/minimall/BackStockForm';
 import SellThroughBars from '../components/minimall/SellThroughBars';
 import ProductSheet from '../components/minimall/ProductSheet';
 import CloseMonthSheet from '../components/minimall/CloseMonthSheet';
 import SlotForm from '../components/minimall/SlotForm';
-import type { MmOverview, MmProductRow } from '../types-anvil';
+import type { MmBackRoomRow, MmOverview, MmProductRow, MmSlotPreset } from '../types-anvil';
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -42,8 +44,15 @@ export default function MiniMall() {
   const [selected, setSelected] = useState<MmProductRow | null>(null);
   const [closing, setClosing] = useState(false);
   const [openingCycle, setOpeningCycle] = useState(false);
-  // null = closed; { row } = editing that bay; { row: null } = adding a new one
-  const [slotForm, setSlotForm] = useState<{ row: MmProductRow | null } | null>(null);
+  // null = closed; { row } = editing that bay; { row: null } = adding a new one,
+  // optionally pre-filled with a product that already has back stock.
+  const [slotForm, setSlotForm] = useState<{
+    row: MmProductRow | null;
+    preset?: MmSlotPreset;
+  } | null>(null);
+  // null = closed; { row } = topping up or recounting that line;
+  // { row: null } = putting something new into the back.
+  const [backStockForm, setBackStockForm] = useState<{ row: MmBackRoomRow | null } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -73,6 +82,26 @@ export default function MiniMall() {
     } finally {
       setOpeningCycle(false);
     }
+  };
+
+  // Putting stock out reuses the product sheet, which already has the stepper
+  // and the back-stock ceiling; the back room just points it at the right row.
+  const putOut = (row: MmBackRoomRow) => {
+    const product = (data?.products ?? []).find((p) => p.product_id === row.product_id);
+    if (product) setSelected(product);
+  };
+
+  const assignBay = (row: MmBackRoomRow) => {
+    setSlotForm({
+      row: null,
+      preset: {
+        product_id: row.product_id,
+        name: row.name,
+        colour: row.colour,
+        category: row.category,
+        back_qty: row.back_qty,
+      },
+    });
   };
 
   const monthName = monthLabel(month);
@@ -240,6 +269,18 @@ export default function MiniMall() {
             />
           </Card>
 
+          {/* Back of shop */}
+          <Card>
+            <BackRoom
+              rows={data!.back_room}
+              stock={data!.stock}
+              onPutOut={putOut}
+              onAssignBay={assignBay}
+              onAdd={() => setBackStockForm({ row: null })}
+              onEditQty={(row) => setBackStockForm({ row })}
+            />
+          </Card>
+
           {/* Sell-through ranking */}
           <Card>
             <div className="flex items-baseline justify-between mb-4">
@@ -277,10 +318,10 @@ export default function MiniMall() {
                     </span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="block text-sm text-white tabular-nums">
-                      {p.display_qty} <span className="text-gray-600">/</span> {p.back_qty}
+                    <span className="block text-sm text-white tabular-nums">{p.total_qty}</span>
+                    <span className="block text-[10px] text-gray-500 tabular-nums">
+                      {p.display_qty} out · {p.back_qty} back
                     </span>
-                    <span className="block text-[10px] text-gray-500">disp / back</span>
                   </div>
                   <div className="text-right shrink-0 w-14">
                     <span className="block text-sm text-gold tabular-nums">{p.units_sold ?? '—'}</span>
@@ -294,7 +335,7 @@ export default function MiniMall() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-widest text-gray-500">
-                    {['Bay', 'Product', 'Colour', 'Price', 'Display', 'Back', 'Sold', 'Revenue', 'Sell-through', ''].map((h) => (
+                    {['Bay', 'Product', 'Colour', 'Price', 'Display', 'Back', 'Total', 'Sold', 'Revenue', 'Sell-through', ''].map((h) => (
                       <th key={h} className="text-left font-medium px-6 py-2 first:pl-6 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -317,6 +358,7 @@ export default function MiniMall() {
                       </td>
                       <td className="px-6 py-2.5 tabular-nums text-gray-200">{p.display_qty}</td>
                       <td className="px-6 py-2.5 tabular-nums text-gray-200">{p.back_qty}</td>
+                      <td className="px-6 py-2.5 tabular-nums text-white">{p.total_qty}</td>
                       <td className="px-6 py-2.5 tabular-nums text-gold">{p.units_sold ?? '—'}</td>
                       <td className="px-6 py-2.5 tabular-nums text-gray-200">
                         {p.units_sold !== null ? formatCurrency(p.revenue) : '—'}
@@ -354,9 +396,17 @@ export default function MiniMall() {
       {slotForm && (
         <SlotForm
           editing={slotForm.row}
+          preset={slotForm.preset}
           slots={data?.slots ?? []}
           slotsPerTier={slotsPerTier}
           onClose={() => setSlotForm(null)}
+          onChanged={() => void load()}
+        />
+      )}
+      {backStockForm && (
+        <BackStockForm
+          editing={backStockForm.row}
+          onClose={() => setBackStockForm(null)}
           onChanged={() => void load()}
         />
       )}
